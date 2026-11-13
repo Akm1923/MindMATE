@@ -1,0 +1,6 @@
+{
+  "name": "MindMate",
+  "description": "Adaptive AI personal mental wellness companion with conversational AI, mood check-ins, personalized daily plans, journaling, and insights.",
+  "requestFramePermissions": [],
+  "majorCapabilities": ["MAJOR_CAPABILITY_SERVER_SIDE_GEMINI_API"]
+}

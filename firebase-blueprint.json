@@ -1,0 +1,139 @@
+{
+  "entities": {
+    "UserProfile": {
+      "title": "UserProfile",
+      "description": "Personal wellness profile, preferences, goals, hydration state, and consent settings for MindMate.",
+      "type": "object",
+      "properties": {
+        "userId": { "type": "string", "description": "Firebase Auth UID of the profile owner." },
+        "displayName": { "type": "string", "description": "User display name." },
+        "email": { "type": "string", "description": "User email address." },
+        "photoUrl": { "type": "string", "description": "Optional profile avatar URL." },
+        "dietaryPreference": {
+          "type": "string",
+          "enum": ["balanced", "vegetarian", "vegan", "indian_home", "high_protein"]
+        },
+        "activityPreference": {
+          "type": "string",
+          "enum": ["gentle", "moderate", "energetic", "outdoor_first"]
+        },
+        "indoorOutdoorPreference": {
+          "type": "string",
+          "enum": ["both", "indoor", "outdoor"]
+        },
+        "wellnessGoal": { "type": "string", "description": "Personal wellness focus goal." },
+        "hydrationGoalMl": { "type": "integer", "description": "Daily hydration target in ml." },
+        "hydrationTodayMl": { "type": "integer", "description": "Logged hydration today in ml." },
+        "notificationsEnabled": { "type": "boolean" },
+        "voiceSpeechEnabled": { "type": "boolean" },
+        "reducedMotionEnabled": { "type": "boolean" },
+        "voiceConsentGranted": { "type": "boolean" },
+        "memoryConsentGranted": { "type": "boolean" },
+        "conversationHistoryEnabled": { "type": "boolean" },
+        "onboardingCompleted": { "type": "boolean" },
+        "createdAt": { "type": "string", "format": "date-time", "description": "Server timestamp on create." },
+        "updatedAt": { "type": "string", "format": "date-time", "description": "Server timestamp on update." }
+      },
+      "required": [
+        "userId",
+        "displayName",
+        "email",
+        "dietaryPreference",
+        "activityPreference",
+        "indoorOutdoorPreference",
+        "wellnessGoal",
+        "hydrationGoalMl",
+        "hydrationTodayMl",
+        "notificationsEnabled",
+        "voiceSpeechEnabled",
+        "reducedMotionEnabled",
+        "voiceConsentGranted",
+        "memoryConsentGranted",
+        "conversationHistoryEnabled",
+        "onboardingCompleted",
+        "createdAt",
+        "updatedAt"
+      ]
+    },
+    "MoodLog": {
+      "title": "MoodLog",
+      "description": "Self-reported emotional check-in log.",
+      "type": "object",
+      "properties": {
+        "userId": { "type": "string" },
+        "mood": { "type": "string", "enum": ["great", "good", "okay", "low", "stressed"] },
+        "note": { "type": "string" },
+        "energyLevel": { "type": "integer" },
+        "createdAt": { "type": "string", "format": "date-time" }
+      },
+      "required": ["userId", "mood", "note", "energyLevel", "createdAt"]
+    },
+    "JournalEntry": {
+      "title": "JournalEntry",
+      "description": "Private personal reflection journal entry with optional AI summary and prompt question.",
+      "type": "object",
+      "properties": {
+        "userId": { "type": "string" },
+        "title": { "type": "string" },
+        "content": { "type": "string" },
+        "moodTag": { "type": "string", "enum": ["", "great", "good", "okay", "low", "stressed"] },
+        "aiSummary": { "type": "string" },
+        "aiPromptQuestion": { "type": "string" },
+        "createdAt": { "type": "string", "format": "date-time" },
+        "updatedAt": { "type": "string", "format": "date-time" }
+      },
+      "required": ["userId", "title", "content", "moodTag", "aiSummary", "aiPromptQuestion", "createdAt", "updatedAt"]
+    },
+    "ActivityLog": {
+      "title": "ActivityLog",
+      "description": "Saved, completed, or dismissed personalized wellness activity record.",
+      "type": "object",
+      "properties": {
+        "userId": { "type": "string" },
+        "recommendationId": { "type": "string" },
+        "title": { "type": "string" },
+        "category": { "type": "string", "enum": ["move", "eat_well", "relax", "get_outside", "daily_habits"] },
+        "durationMinutes": { "type": "integer" },
+        "status": { "type": "string", "enum": ["saved", "completed", "dismissed"] },
+        "createdAt": { "type": "string", "format": "date-time" },
+        "updatedAt": { "type": "string", "format": "date-time" }
+      },
+      "required": ["userId", "recommendationId", "title", "category", "durationMinutes", "status", "createdAt", "updatedAt"]
+    },
+    "CompanionMessage": {
+      "title": "CompanionMessage",
+      "description": "Consent-gated MindMate companion conversation turn.",
+      "type": "object",
+      "properties": {
+        "userId": { "type": "string" },
+        "role": { "type": "string", "enum": ["user", "companion"] },
+        "mode": { "type": "string", "enum": ["listen", "explore", "support", "relax", "casual"] },
+        "content": { "type": "string" },
+        "createdAt": { "type": "string", "format": "date-time" }
+      },
+      "required": ["userId", "role", "mode", "content", "createdAt"]
+    }
+  },
+  "firestore": {
+    "/users/{userId}": {
+      "schema": { "$ref": "#/entities/UserProfile" },
+      "description": "User wellness profile, preferences, hydration progress, and consent settings."
+    },
+    "/users/{userId}/mood_logs/{logId}": {
+      "schema": { "$ref": "#/entities/MoodLog" },
+      "description": "User self-reported mood check-ins."
+    },
+    "/users/{userId}/journal_entries/{entryId}": {
+      "schema": { "$ref": "#/entities/JournalEntry" },
+      "description": "Private personal journal entries and optional AI reflections."
+    },
+    "/users/{userId}/activity_logs/{activityLogId}": {
+      "schema": { "$ref": "#/entities/ActivityLog" },
+      "description": "Saved, completed, or dismissed wellness activities."
+    },
+    "/users/{userId}/conversations/{messageId}": {
+      "schema": { "$ref": "#/entities/CompanionMessage" },
+      "description": "Optional companion conversation history messages."
+    }
+  }
+}

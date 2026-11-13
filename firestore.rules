@@ -1,0 +1,215 @@
+rules_version = '2';
+service cloud.firestore {
+  match /databases/{database}/documents {
+
+    // Default-deny safety net
+    match /{document=**} {
+      allow read, write: if false;
+    }
+
+    function isSignedIn() {
+      return request.auth != null;
+    }
+
+    function isOwner(userId) {
+      return isSignedIn() && request.auth.uid == userId;
+    }
+
+    function isValidId(id) {
+      return id is string && id.size() >= 1 && id.size() <= 128 && id.matches('^[a-zA-Z0-9_\\-]+$');
+    }
+
+    function incoming() {
+      return request.resource.data;
+    }
+
+    function existing() {
+      return resource.data;
+    }
+
+    function isValidMood(m) {
+      return m in ['great', 'good', 'okay', 'low', 'stressed'];
+    }
+
+    function isValidUserProfile(data, userId) {
+      return data.userId == userId &&
+             data.displayName is string && data.displayName.size() >= 1 && data.displayName.size() <= 60 &&
+             data.email is string && data.email.size() <= 120 &&
+             (!('photoUrl' in data) || data.photoUrl == null || (data.photoUrl is string && data.photoUrl.size() <= 500)) &&
+             data.dietaryPreference in ['balanced', 'vegetarian', 'vegan', 'indian_home', 'high_protein'] &&
+             data.activityPreference in ['gentle', 'moderate', 'energetic', 'outdoor_first'] &&
+             data.indoorOutdoorPreference in ['both', 'indoor', 'outdoor'] &&
+             data.wellnessGoal is string && data.wellnessGoal.size() <= 160 &&
+             data.hydrationGoalMl is int && data.hydrationGoalMl >= 500 && data.hydrationGoalMl <= 5000 &&
+             data.hydrationTodayMl is int && data.hydrationTodayMl >= 0 && data.hydrationTodayMl <= 10000 &&
+             data.notificationsEnabled is bool &&
+             data.voiceSpeechEnabled is bool &&
+             data.reducedMotionEnabled is bool &&
+             data.voiceConsentGranted is bool &&
+             data.memoryConsentGranted is bool &&
+             data.conversationHistoryEnabled is bool &&
+             data.onboardingCompleted is bool &&
+             data.createdAt is timestamp && data.createdAt <= request.time &&
+             data.updatedAt is timestamp && data.updatedAt <= request.time;
+    }
+
+    function isValidMoodLog(data, userId) {
+      return data.userId == userId &&
+             isValidMood(data.mood) &&
+             data.note is string && data.note.size() <= 500 &&
+             data.energyLevel is int && data.energyLevel >= 1 && data.energyLevel <= 5 &&
+             data.createdAt is timestamp && data.createdAt <= request.time;
+    }
+
+    function isValidJournalEntry(data, userId) {
+      return data.userId == userId &&
+             data.title is string && data.title.size() <= 120 &&
+             data.content is string && data.content.size() >= 1 && data.content.size() <= 4000 &&
+             (data.moodTag == '' || isValidMood(data.moodTag)) &&
+             data.aiSummary is string && data.aiSummary.size() <= 1000 &&
+             data.aiPromptQuestion is string && data.aiPromptQuestion.size() <= 500 &&
+             data.createdAt is timestamp && data.createdAt <= request.time &&
+             data.updatedAt is timestamp && data.updatedAt <= request.time;
+    }
+
+    function isValidActivityLog(data, userId) {
+      return data.userId == userId &&
+             data.recommendationId is string && data.recommendationId.size() >= 1 && data.recommendationId.size() <= 80 &&
+             data.title is string && data.title.size() >= 1 && data.title.size() <= 120 &&
+             data.category in ['move', 'eat_well', 'relax', 'get_outside', 'daily_habits'] &&
+             data.durationMinutes is int && data.durationMinutes >= 1 && data.durationMinutes <= 240 &&
+             data.status in ['saved', 'completed', 'dismissed'] &&
+             data.createdAt is timestamp && data.createdAt <= request.time &&
+             data.updatedAt is timestamp && data.updatedAt <= request.time;
+    }
+
+    function isValidCompanionMessage(data, userId) {
+      return data.userId == userId &&
+             data.role in ['user', 'companion'] &&
+             data.mode in ['listen', 'explore', 'support', 'relax', 'casual'] &&
+             data.content is string && data.content.size() >= 1 && data.content.size() <= 4000 &&
+             data.createdAt is timestamp && data.createdAt <= request.time;
+    }
+
+    match /users/{userId} {
+      allow get: if isOwner(userId) && isValidId(userId);
+      allow list: if false;
+
+      allow create: if isOwner(userId) &&
+                       isValidId(userId) &&
+                       incoming().keys().hasAll([
+                         'userId', 'displayName', 'email', 'dietaryPreference',
+                         'activityPreference', 'indoorOutdoorPreference', 'wellnessGoal',
+                         'hydrationGoalMl', 'hydrationTodayMl', 'notificationsEnabled',
+                         'voiceSpeechEnabled', 'reducedMotionEnabled', 'voiceConsentGranted',
+                         'memoryConsentGranted', 'conversationHistoryEnabled',
+                         'onboardingCompleted', 'createdAt', 'updatedAt'
+                       ]) &&
+                       incoming().keys().hasOnly([
+                         'userId', 'displayName', 'email', 'photoUrl', 'dietaryPreference',
+                         'activityPreference', 'indoorOutdoorPreference', 'wellnessGoal',
+                         'hydrationGoalMl', 'hydrationTodayMl', 'notificationsEnabled',
+                         'voiceSpeechEnabled', 'reducedMotionEnabled', 'voiceConsentGranted',
+                         'memoryConsentGranted', 'conversationHistoryEnabled',
+                         'onboardingCompleted', 'createdAt', 'updatedAt'
+                       ]) &&
+                       isValidUserProfile(incoming(), userId);
+
+      allow update: if isOwner(userId) &&
+                       isValidId(userId) &&
+                       isValidUserProfile(incoming(), userId) &&
+                       incoming().userId == existing().userId &&
+                       incoming().createdAt == existing().createdAt &&
+                       (
+                         incoming().diff(existing()).affectedKeys().hasOnly(['hydrationTodayMl', 'updatedAt']) ||
+                         incoming().diff(existing()).affectedKeys().hasOnly([
+                           'voiceConsentGranted', 'memoryConsentGranted',
+                           'conversationHistoryEnabled', 'voiceSpeechEnabled',
+                           'reducedMotionEnabled', 'notificationsEnabled', 'updatedAt'
+                         ]) ||
+                         incoming().diff(existing()).affectedKeys().hasOnly([
+                           'displayName', 'dietaryPreference', 'activityPreference',
+                           'indoorOutdoorPreference', 'wellnessGoal', 'hydrationGoalMl',
+                           'hydrationTodayMl', 'notificationsEnabled', 'voiceSpeechEnabled',
+                           'reducedMotionEnabled', 'voiceConsentGranted', 'memoryConsentGranted',
+                           'conversationHistoryEnabled', 'onboardingCompleted', 'updatedAt'
+                         ])
+                       );
+
+      allow delete: if isOwner(userId) && isValidId(userId);
+
+      match /mood_logs/{logId} {
+        allow get: if isOwner(userId) && isValidId(logId);
+        allow list: if isOwner(userId);
+        allow create: if isOwner(userId) &&
+                         isValidId(logId) &&
+                         incoming().keys().hasAll(['userId', 'mood', 'note', 'energyLevel', 'createdAt']) &&
+                         incoming().keys().hasOnly(['userId', 'mood', 'note', 'energyLevel', 'createdAt']) &&
+                         isValidMoodLog(incoming(), userId);
+        allow update: if false;
+        allow delete: if isOwner(userId) && isValidId(logId);
+      }
+
+      match /journal_entries/{entryId} {
+        allow get: if isOwner(userId) && isValidId(entryId);
+        allow list: if isOwner(userId);
+        allow create: if isOwner(userId) &&
+                         isValidId(entryId) &&
+                         incoming().keys().hasAll([
+                           'userId', 'title', 'content', 'moodTag',
+                           'aiSummary', 'aiPromptQuestion', 'createdAt', 'updatedAt'
+                         ]) &&
+                         incoming().keys().hasOnly([
+                           'userId', 'title', 'content', 'moodTag',
+                           'aiSummary', 'aiPromptQuestion', 'createdAt', 'updatedAt'
+                         ]) &&
+                         isValidJournalEntry(incoming(), userId);
+        allow update: if isOwner(userId) &&
+                         isValidId(entryId) &&
+                         isValidJournalEntry(incoming(), userId) &&
+                         incoming().userId == existing().userId &&
+                         incoming().createdAt == existing().createdAt &&
+                         (
+                           incoming().diff(existing()).affectedKeys().hasOnly(['aiSummary', 'aiPromptQuestion', 'updatedAt']) ||
+                           incoming().diff(existing()).affectedKeys().hasOnly(['title', 'content', 'moodTag', 'aiSummary', 'aiPromptQuestion', 'updatedAt'])
+                         );
+        allow delete: if isOwner(userId) && isValidId(entryId);
+      }
+
+      match /activity_logs/{activityLogId} {
+        allow get: if isOwner(userId) && isValidId(activityLogId);
+        allow list: if isOwner(userId);
+        allow create: if isOwner(userId) &&
+                         isValidId(activityLogId) &&
+                         incoming().keys().hasAll([
+                           'userId', 'recommendationId', 'title', 'category',
+                           'durationMinutes', 'status', 'createdAt', 'updatedAt'
+                         ]) &&
+                         incoming().keys().hasOnly([
+                           'userId', 'recommendationId', 'title', 'category',
+                           'durationMinutes', 'status', 'createdAt', 'updatedAt'
+                         ]) &&
+                         isValidActivityLog(incoming(), userId);
+        allow update: if isOwner(userId) &&
+                         isValidId(activityLogId) &&
+                         isValidActivityLog(incoming(), userId) &&
+                         incoming().userId == existing().userId &&
+                         incoming().createdAt == existing().createdAt &&
+                         incoming().diff(existing()).affectedKeys().hasOnly(['status', 'updatedAt']);
+        allow delete: if isOwner(userId) && isValidId(activityLogId);
+      }
+
+      match /conversations/{messageId} {
+        allow get: if isOwner(userId) && isValidId(messageId);
+        allow list: if isOwner(userId);
+        allow create: if isOwner(userId) &&
+                         isValidId(messageId) &&
+                         incoming().keys().hasAll(['userId', 'role', 'mode', 'content', 'createdAt']) &&
+                         incoming().keys().hasOnly(['userId', 'role', 'mode', 'content', 'createdAt']) &&
+                         isValidCompanionMessage(incoming(), userId);
+        allow update: if false;
+        allow delete: if isOwner(userId) && isValidId(messageId);
+      }
+    }
+  }
+}

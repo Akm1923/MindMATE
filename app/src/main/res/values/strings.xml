@@ -1,0 +1,5 @@
+<resources>
+    <string name="app_name">MindMate</string>
+    <string name="tagline">Your mind deserves a little care.</string>
+    <string name="wellness_disclaimer">MindMate is a personal wellness companion and is not a therapist, diagnostic tool, or substitute for professional mental healthcare.</string>
+</resources>
